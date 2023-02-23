@@ -1,6 +1,6 @@
 use clap::Parser;
 use regex::Regex;
-use std::fs;
+use std::{error, fs};
 use text_colorizer::*;
 
 fn replace(target: &str, replacement: &str, text: &str) -> Result<String, regex::Error> {
@@ -23,40 +23,32 @@ struct Arguments {
     target: String,
     replacement: String,
 }
+
+fn print_error_and_halt(msg: &str, err: &dyn error::Error) -> ! {
+    eprintln!(
+        "{} {} : {:?}",
+        "Error:".red().bold(),
+        String::from(msg),
+        err
+    );
+    std::process::exit(1)
+}
+
 fn main() {
     let args = Arguments::parse();
 
     let data = match fs::read_to_string(&args.filename) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!(
-                "{} failed to read from file '{}': {:?}",
-                "Error:".red().bold(),
-                String::from(args.filename.to_str().unwrap()),
-                e
-            );
-            std::process::exit(1);
-        }
+        Err(e) => print_error_and_halt("failed to read from file", &e),
     };
 
     let replaced_data = match replace(&args.target, &args.replacement, &data) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!("{} failed to replace text : {:?}", "Error:".red().bold(), e);
-            std::process::exit(1);
-        }
+        Err(e) => print_error_and_halt("failed to replace text", &e),
     };
 
     match fs::write(&args.output, &replaced_data) {
         Ok(_) => {}
-        Err(e) => {
-            eprintln!(
-                "{} failed to write to file '{}': {:?}",
-                "Error:".red().bold(),
-                String::from(args.filename.to_str().unwrap()),
-                e
-            );
-            std::process::exit(1);
-        }
+        Err(e) => print_error_and_halt("failed to replace text", &e),
     }
 }
