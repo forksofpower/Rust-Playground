@@ -1,33 +1,50 @@
-extern crate ocl;
-
+use crate::error::{MandelbrotError, Result};
+use crate::types::Dimensions;
 use ocl::ProQue;
 
-// Function to map the number of iterations i to a grey value between 0 (black)
-// and 255 (white).
-fn get_color(i: u32, max_iterations: u32) -> image::Rgb<u8> {
-    if i > max_iterations {
+/// Map iteration count to an RGB grayscale value
+fn map_iterations_to_color(iterations: u32, max_iterations: u32) -> image::Rgb<u8> {
+    if iterations > max_iterations {
         return image::Rgb([255, 255, 255]);
     }
-    if max_iterations == 255 {
-        let idx = i as u8;
-        return image::Rgb([idx, idx, idx]);
-    }
-    let idx = (((i as f32) / (max_iterations as f32)) * 255.0).round() as u8;
-    return image::Rgb([idx, idx, idx]);
+    
+    let normalized = if max_iterations == 255 {
+        iterations as u8
+    } else {
+        ((iterations as f32 / max_iterations as f32) * 255.0).round() as u8
+    };
+    
+    image::Rgb([normalized, normalized, normalized])
 }
 
-/// Render a rectangle of the Mandelbrot set into a buffer of pixels using opencl
-pub fn gpu_render(w: u32, h: u32, limit: usize) -> image::RgbImage {
+/// Render a fractal using GPU acceleration with OpenCL
+///
+/// # Arguments
+///
+/// * `dimensions` - Image dimensions (width x height)
+/// * `limit` - Maximum number of iterations
+///
+/// # Returns
+///
+/// An RGB image on success, or an error if GPU rendering fails
+pub fn gpu_render(dimensions: Dimensions, limit: usize) -> Result<image::RgbImage> {
+    let w = dimensions.width as u32;
+    let h = dimensions.height as u32;
     let mut img = image::RgbImage::new(w, h);
-    // Build an OpenCL context, make it run the OpenCL C code defined in mandelbrot.cl, and
-    // set the data structure to operate on as a 2D w by h structure.
-    let pro_que =
-        ProQue::builder().src(include_str!("mandelbrot.cl")).dims((w, h)).build().unwrap();
-    // Create a buffer to be the output buffer accessible by workers.
-    // This memory lives on the GPU.
-    let buffer = pro_que.create_buffer::<u32>().unwrap();
-    // Build the OpenCL program, make it run the kernel called `mandelbrot` and bind
-    // values to the kernel arguments.
+    
+    // Build OpenCL context and load the kernel from mandelbrot.cl
+    let pro_que = ProQue::builder()
+        .src(include_str!("shaders/mandelbrot.cl"))
+        .dims((w, h))
+        .build()
+        .map_err(|e| MandelbrotError::GpuError(format!("Failed to build OpenCL context: {}", e)))?;
+    
+    // Create output buffer on the GPU
+    let buffer = pro_que
+        .create_buffer::<u32>()
+        .map_err(|e| MandelbrotError::GpuError(format!("Failed to create buffer: {}", e)))?;
+    
+    // Build and configure the kernel
     let kernel = pro_que
         .kernel_builder("mandelbrot")
         .arg(&buffer)
@@ -35,20 +52,26 @@ pub fn gpu_render(w: u32, h: u32, limit: usize) -> image::RgbImage {
         .arg(h)
         .arg(limit as u32)
         .build()
-        .unwrap();
+        .map_err(|e| MandelbrotError::GpuError(format!("Failed to build kernel: {}", e)))?;
 
-    // Run the OpenCL kernel
+    // Execute the kernel
     unsafe {
-        kernel.enq().unwrap();
+        kernel.enq()
+            .map_err(|e| MandelbrotError::GpuError(format!("Failed to execute kernel: {}", e)))?;
     }
-    let mut vec = vec![0u32; buffer.len()];
-    // Copy the OpenCL buffer back to a traditional vector
-    buffer.read(&mut vec).enq().unwrap();
-    for (idx, iteration) in vec.iter().enumerate() {
-        let rgb = get_color(*iteration, limit as u32);
+    
+    // Read results back from GPU
+    let mut results = vec![0u32; buffer.len()];
+    buffer.read(&mut results).enq()
+        .map_err(|e| MandelbrotError::GpuError(format!("Failed to read buffer: {}", e)))?;
+    
+    // Convert iteration counts to RGB pixels
+    for (idx, &iterations) in results.iter().enumerate() {
+        let rgb = map_iterations_to_color(iterations, limit as u32);
         let x = idx as u32 % w;
         let y = idx as u32 / w;
         img.put_pixel(x, y, rgb);
     }
-    img
+    
+    Ok(img)
 }

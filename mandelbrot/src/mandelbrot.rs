@@ -1,11 +1,11 @@
 use num::{Complex, complex::ComplexFloat};
 
-pub trait PlottingAlgorithm {
+pub trait FractalAlgorithm {
     fn calculate(&self, c: Complex<f64>, zoom: usize, limit: usize) -> Option<usize>;
 }
 
 pub struct EscapeTime;
-impl PlottingAlgorithm for EscapeTime {
+impl FractalAlgorithm for EscapeTime {
     fn calculate(&self, c: Complex<f64>, _zoom: usize, limit: usize) -> Option<usize> {
         // Set z = 0 (initial value of z)
         let mut z = Complex { re: 0.0, im: 0.0 };
@@ -25,7 +25,7 @@ impl PlottingAlgorithm for EscapeTime {
 }
 
 pub struct BurningShip;
-impl PlottingAlgorithm for BurningShip {
+impl FractalAlgorithm for BurningShip {
     fn calculate(&self, c: Complex<f64>, _zoom: usize, limit: usize) -> Option<usize> {
         let mut z = Complex::new(0.0, 0.0);
         let mut iterations = 0;
@@ -45,13 +45,13 @@ impl PlottingAlgorithm for BurningShip {
 }
 
 pub struct Canvas {
-    algorithm: Box<dyn PlottingAlgorithm + Send + Sync>,
+    algorithm: Box<dyn FractalAlgorithm + Send + Sync>,
     // height: usize,
     // width: usize,
     // zoom: usize,
 }
 impl Canvas {
-    pub fn new(algorithm: Box<dyn PlottingAlgorithm + Send + Sync>) -> Self {
+    pub fn new(algorithm: Box<dyn FractalAlgorithm + Send + Sync>) -> Self {
         Self { algorithm }
     }
     pub fn render(
@@ -76,7 +76,7 @@ impl Canvas {
     }
 }
 
-pub fn get_plotting_algorithm(name: &str) -> Box<dyn PlottingAlgorithm + Send + Sync> {
+pub fn get_plotting_algorithm(name: &str) -> Box<dyn FractalAlgorithm + Send + Sync> {
     match name {
         "escape_time" => Box::new(EscapeTime),
         "burning_ship" => Box::new(BurningShip),
