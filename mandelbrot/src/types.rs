@@ -1,62 +1,35 @@
+use derive_more::From;
+use derive_new::new;
 use num::Complex;
 
 /// Represents image dimensions (width, height) in pixels
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, From, new)]
 pub struct Dimensions {
     pub width: usize,
     pub height: usize,
 }
 
 impl Dimensions {
-    pub fn new(width: usize, height: usize) -> Self {
-        Self { width, height }
-    }
-
     pub fn total_pixels(&self) -> usize {
         self.width * self.height
     }
 }
 
-impl From<(usize, usize)> for Dimensions {
-    fn from((width, height): (usize, usize)) -> Self {
-        Self { width, height }
-    }
-}
-
 /// Represents a pixel coordinate (x, y)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, From, new)]
 pub struct Pixel {
     pub x: usize,
     pub y: usize,
 }
 
-impl Pixel {
-    pub fn new(x: usize, y: usize) -> Self {
-        Self { x, y }
-    }
-}
-
-impl From<(usize, usize)> for Pixel {
-    fn from((x, y): (usize, usize)) -> Self {
-        Self { x, y }
-    }
-}
-
 /// Represents a rectangular region in the complex plane
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, new)]
 pub struct ComplexRegion {
     pub upper_left: Complex<f64>,
     pub lower_right: Complex<f64>,
 }
 
 impl ComplexRegion {
-    pub fn new(upper_left: Complex<f64>, lower_right: Complex<f64>) -> Self {
-        Self {
-            upper_left,
-            lower_right,
-        }
-    }
-
     /// Calculate the width and height of this region
     pub fn dimensions(&self) -> (f64, f64) {
         let width = self.lower_right.re - self.upper_left.re;
@@ -91,7 +64,7 @@ impl ComplexRegion {
 pub fn calculate_region(magnitude: f64, center: (f64, f64)) -> ComplexRegion {
     let half_mag = magnitude / 2.0;
     let (center_x, center_y) = center;
-    
+
     ComplexRegion::new(
         Complex::new(center_x - half_mag, center_y + half_mag),
         Complex::new(center_x + half_mag, center_y - half_mag),

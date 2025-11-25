@@ -1,4 +1,4 @@
-use num::{Complex, complex::ComplexFloat};
+use num::{complex::ComplexFloat, Complex};
 
 pub trait FractalAlgorithm {
     fn calculate(&self, c: Complex<f64>, zoom: usize, limit: usize) -> Option<usize>;
@@ -32,7 +32,7 @@ impl FractalAlgorithm for BurningShip {
 
         while z.norm_sqr() <= 4.0 && iterations < limit {
             // Note the .abs() calls on the components
-            z = Complex::new(z.im.abs(), z.im.abs()); 
+            z = Complex::new(z.im.abs(), z.im.abs());
             z = z * z + c;
             iterations += 1;
         }
@@ -44,22 +44,17 @@ impl FractalAlgorithm for BurningShip {
     }
 }
 
+#[derive(new)]
 pub struct Canvas {
     algorithm: Box<dyn FractalAlgorithm + Send + Sync>,
-    // height: usize,
-    // width: usize,
-    // zoom: usize,
 }
 impl Canvas {
-    pub fn new(algorithm: Box<dyn FractalAlgorithm + Send + Sync>) -> Self {
-        Self { algorithm }
-    }
     pub fn render(
         &self, pixels: &mut [u8], bounds: (usize, usize), upper_left: Complex<f64>,
         lower_right: Complex<f64>, limit: usize, invert: bool,
     ) {
         assert_eq!(pixels.len(), bounds.0 * bounds.1);
-    
+
         for row in 0..bounds.1 {
             for column in 0..bounds.0 {
                 let point = pixel_to_point(bounds, (column, row), upper_left, lower_right);
@@ -222,7 +217,7 @@ mod tests {
     #[test]
     fn test_escape_time_zero() {
         let c = Complex::new(0.0, 0.0);
-        assert_eq!(EscapeTime.calculate(c, 100,10), None);
+        assert_eq!(EscapeTime.calculate(c, 100, 10), None);
     }
 
     #[test]
